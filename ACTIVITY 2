@@ -1,0 +1,137 @@
+package com.example.dessertclicker
+
+import android.os.Bundle
+import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.example.dessertclicker.ui.theme.DessertClickerTheme
+import androidx.compose.runtime.saveable.rememberSaveable
+
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate Called")
+
+        setContent {
+            DessertClickerTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    DessertClickerApp()
+                }
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d("MainActivity", "onStart Called")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d("MainActivity", "onResume Called")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d("MainActivity", "onPause Called")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d("MainActivity", "onStop Called")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d("MainActivity", "onDestroy Called")
+    }
+}
+
+@Composable
+fun DessertClickerApp() {
+    var dessertsSold by rememberSaveable { mutableIntStateOf(0) }
+    var revenue by rememberSaveable { mutableIntStateOf(0) }
+
+    // Sample dessert list
+    val desserts = listOf(
+        Dessert(R.drawable.donut, price = 5, startProductionAmount = 0),
+        Dessert(R.drawable.cupcake, price = 10, startProductionAmount = 5),
+        Dessert(R.drawable.icecream, price = 20, startProductionAmount = 10)
+    )
+
+    var currentDessertIndex by rememberSaveable { mutableIntStateOf(0) }
+    var currentDessertImageId by rememberSaveable { mutableIntStateOf(desserts[currentDessertIndex].imageId) }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        // Dessert image
+        Image(
+            painter = painterResource(id = currentDessertImageId),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clickable {
+                    dessertsSold++
+                    revenue += desserts[currentDessertIndex].price
+
+                    // Update current dessert if conditions are met
+                    if (currentDessertIndex < desserts.size - 1 &&
+                        dessertsSold >= desserts[currentDessertIndex + 1].startProductionAmount) {
+                        currentDessertIndex++
+                        currentDessertImageId = desserts[currentDessertIndex].imageId
+                    }
+                }
+        )
+
+        // Stats panel
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(text = "Desserts sold")
+                Text(text = dessertsSold.toString())
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(text = "Total Revenue")
+                Text(text = "$$revenue")
+            }
+        }
+    }
+}
+
+data class Dessert(
+    val imageId: Int,
+    val price: Int,
+    val startProductionAmount: Int
+)
+
+@Preview(showBackground = true)
+@Composable
+fun DessertClickerPreview() {
+    DessertClickerTheme {
+        DessertClickerApp()
+    }
+}
