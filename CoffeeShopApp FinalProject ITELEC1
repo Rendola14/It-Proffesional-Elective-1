@@ -1,0 +1,309 @@
+File: build.gradle.kts
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "com.example.coffeeshopapp"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.example.coffeeshopapp"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.cardview)
+    implementation("com.github.bumptech.glide:glide:4.16.0") // Image loading library
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+}
+
+
+File: AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- PERMISSION: Allows the app to use Wi-Fi/Data to fetch images -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.CoffeeShopApp"
+        android:usesCleartextTraffic="true">
+
+        <!-- LOGIN ACTIVITY: The first screen the user sees -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- MAIN ACTIVITY: The shopping screen -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+    </application>
+</manifest>
+
+
+File: MainActivity.kt
+package com.example.coffeeshopapp
+
+import android.app.AlertDialog
+import android.os.Bundle
+import android.view.View
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.request.RequestOptions
+
+class MainActivity : AppCompatActivity() {
+
+    // 1. DATA STORAGE
+    data class CartItem(val name: String, val quantity: Int, val totalPrice: Double)
+    private val cartList = mutableListOf<CartItem>()
+    private var grandTotal = 0.0
+    private lateinit var tvGrandTotal: TextView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // 2. INITIALIZATION
+        tvGrandTotal = findViewById(R.id.tvGrandTotal)
+        val btnCheckout = findViewById<Button>(R.id.btnCheckout)
+
+        // 3. MENU SETUP (Populating the list)
+        setupCoffeeItem(R.id.itemEspresso, "Espresso", 3.00, "https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=600")
+        setupCoffeeItem(R.id.itemLatte, "Latte", 4.50, "https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=600")
+        // ... (other items: Cappuccino, Mocha, Iced items, Pastries) ...
+
+        // 4. CHECKOUT BUTTON LISTENER
+        btnCheckout.setOnClickListener {
+            showCheckoutDialog()
+        }
+    }
+
+    // 5. HELPER FUNCTION: Sets up one single menu item
+    private fun setupCoffeeItem(layoutId: Int, name: String, price: Double, imageUrl: String) {
+        val includedLayout = findViewById<View>(layoutId)
+        
+        // Find internal views within the specific item layout
+        val imgCoffee = includedLayout.findViewById<ImageView>(R.id.imgCoffee)
+        val tvName = includedLayout.findViewById<TextView>(R.id.tvName)
+        val tvPrice = includedLayout.findViewById<TextView>(R.id.tvPrice)
+        val tvQty = includedLayout.findViewById<TextView>(R.id.tvQty)
+        val btnMinus = includedLayout.findViewById<Button>(R.id.btnMinus)
+        val btnPlus = includedLayout.findViewById<Button>(R.id.btnPlus)
+        val btnAdd = includedLayout.findViewById<Button>(R.id.btnAdd)
+
+        // Set text
+        tvName.text = name
+        tvPrice.text = String.format("$%.2f", price)
+
+        // Load Image using Glide
+        Glide.with(this)
+            .load(imageUrl)
+            .apply(RequestOptions().transforms(CenterCrop(), RoundedCorners(16)))
+            .into(imgCoffee)
+
+        // Handle + and - buttons
+        var currentQty = 1
+        btnPlus.setOnClickListener { 
+            currentQty++
+            tvQty.text = currentQty.toString() 
+        }
+        btnMinus.setOnClickListener { 
+            if (currentQty > 1) {
+                currentQty--
+                tvQty.text = currentQty.toString()
+            }
+        }
+
+        // Handle "Add to Order"
+        btnAdd.setOnClickListener {
+            val itemTotal = currentQty * price
+            grandTotal += itemTotal
+            cartList.add(CartItem(name, currentQty, itemTotal)) // Add to memory list
+            
+            tvGrandTotal.text = String.format("$%.2f", grandTotal) // Update footer
+            Toast.makeText(this, "Added $currentQty $name(s)", Toast.LENGTH_SHORT).show()
+            
+            // Reset counter
+            currentQty = 1
+            tvQty.text = "1"
+        }
+    }
+
+    // 6. RECEIPT DIALOG
+    private fun showCheckoutDialog() {
+        if (cartList.isEmpty()) return
+
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Order Confirmation")
+        builder.setIcon(R.drawable.ic_coffee_logo)
+
+        // Build the text string for the receipt
+        val receipt = StringBuilder()
+        for (item in cartList) {
+            receipt.append("• ${item.quantity}x ${item.name}   $${String.format("%.2f", item.totalPrice)}\n")
+        }
+        receipt.append("\nTotal Due: $${String.format("%.2f", grandTotal)}")
+
+        builder.setMessage(receipt.toString())
+        builder.setPositiveButton("Pay Now") { dialog, _ ->
+            cartList.clear()
+            grandTotal = 0.0
+            tvGrandTotal.text = "$0.00"
+            dialog.dismiss()
+        }
+        builder.show()
+    }
+}
+
+
+File: activity_main.xml
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/cream_background">
+
+    <!-- SCROLLABLE AREA: The Menu -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/layoutCartSummary"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:text="Coffee &amp; Pastries"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:textColor="@color/coffee_dark"/>
+
+            <!-- Included Layouts: These inject the item_coffee_layout.xml here -->
+            <include layout="@layout/item_coffee_layout" android:id="@+id/itemEspresso"/>
+            <include layout="@layout/item_coffee_layout" android:id="@+id/itemMuffin"/>
+            <!-- ... other items ... -->
+
+            <!-- Spacer to ensure bottom items aren't hidden -->
+            <View android:layout_width="match_parent" android:layout_height="80dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- FIXED FOOTER: The Cart Summary -->
+    <LinearLayout
+        android:id="@+id/layoutCartSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="@color/coffee_dark"
+        android:padding="20dp">
+        
+        <TextView android:id="@+id/tvGrandTotal" android:text="$0.00" ... />
+        <Button android:id="@+id/btnCheckout" android:text="Checkout" ... />
+    </LinearLayout>
+</RelativeLayout>
+
+
+File: item_coffee_layout.xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@drawable/bg_card_rounded"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:elevation="4dp">
+
+    <!-- The Image Placeholder -->
+    <ImageView
+        android:id="@+id/imgCoffee"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="#DDD" />
+
+    <!-- Right side: Name, Price, Buttons -->
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_marginStart="16dp">
+        
+        <TextView android:id="@+id/tvName" android:text="Coffee Name" ... />
+        <TextView android:id="@+id/tvPrice" android:text="$0.00" ... />
+
+        <!-- Quantity Row (- 1 +) -->
+        <LinearLayout android:orientation="horizontal">
+            <Button android:id="@+id/btnMinus" android:text="-" ... />
+            <TextView android:id="@+id/tvQty" android:text="1" ... />
+            <Button android:id="@+id/btnPlus" android:text="+" ... />
+        </LinearLayout>
+
+        <Button android:id="@+id/btnAdd" android:text="Add to Order" ... />
+    </LinearLayout>
+</LinearLayout>
+
+
+File: ic_coffee_logo.xml
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Paths define the lines drawn -->
+    <path android:pathData="..." android:strokeColor="#4E342E" ... />
+</vector>
